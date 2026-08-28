@@ -3,19 +3,20 @@ param(
     [string]$InputFile
 )
 
-$host.UI.RawUI.WindowTitle = "Trim Clip v7.4"
+$host.UI.RawUI.WindowTitle = "Trim Clip v7.5"
+
 $Invariant = [System.Globalization.CultureInfo]::InvariantCulture
 
 function Show-Banner {
     Clear-Host
+
     Write-Host @'
  _______ ____  ___ __  __     ____ _     ___ ____
 |__   __|  _ \|_ _|  \/  |   / ___| |   |_ _|  _ \
    | |  | |_) || || |\/| |  | |   | |    | || |_) |
    | |  |  _ < | || |  | |  | |___| |___ | ||  __/
    |_|  |_| \_\___|_|  |_|   \____|_____|___|_|
-
-                        v7.4
+                        v7.5
 '@
 }
 
@@ -31,15 +32,14 @@ function Format-Seconds([double]$Value) {
     return $Value.ToString("0.###", $Invariant)
 }
 
-function Format-FileSeconds([double]$Value) {
-    return (Format-Seconds $Value).Replace(".", "_")
-}
-
 function Quote-Argument([string]$Value) {
     return '"' + $Value.Replace('"', '\"') + '"'
 }
 
-function Get-MediaDuration([string]$FfmpegPath, [string]$FilePath) {
+function Get-MediaDuration(
+    [string]$FfmpegPath,
+    [string]$FilePath
+) {
     try {
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo
         $startInfo.FileName = $FfmpegPath
@@ -50,9 +50,11 @@ function Get-MediaDuration([string]$FfmpegPath, [string]$FilePath) {
 
         $process = New-Object System.Diagnostics.Process
         $process.StartInfo = $startInfo
+
         [void]$process.Start()
 
         $probeText = $process.StandardError.ReadToEnd()
+
         $process.WaitForExit()
 
         $match = [regex]::Match(
@@ -66,7 +68,10 @@ function Get-MediaDuration([string]$FfmpegPath, [string]$FilePath) {
 
         $hours = [double]$match.Groups[1].Value
         $minutes = [double]$match.Groups[2].Value
-        $seconds = [double]::Parse($match.Groups[3].Value, $Invariant)
+        $seconds = [double]::Parse(
+            $match.Groups[3].Value,
+            $Invariant
+        )
 
         return ($hours * 3600) + ($minutes * 60) + $seconds
     }
@@ -76,7 +81,10 @@ function Get-MediaDuration([string]$FfmpegPath, [string]$FilePath) {
 }
 
 function Convert-TimecodeToSeconds([string]$Timecode) {
-    $match = [regex]::Match($Timecode, '^(\d+):(\d+):(\d+(?:\.\d+)?)$')
+    $match = [regex]::Match(
+        $Timecode,
+        '^(\d+):(\d+):(\d+(?:\.\d+)?)$'
+    )
 
     if (-not $match.Success) {
         return 0.0
@@ -84,16 +92,25 @@ function Convert-TimecodeToSeconds([string]$Timecode) {
 
     $hours = [double]$match.Groups[1].Value
     $minutes = [double]$match.Groups[2].Value
-    $seconds = [double]::Parse($match.Groups[3].Value, $Invariant)
+    $seconds = [double]::Parse(
+        $match.Groups[3].Value,
+        $Invariant
+    )
 
     return ($hours * 3600) + ($minutes * 60) + $seconds
 }
 
 function Show-ProgressBar([double]$Percent) {
-    $Percent = [Math]::Max(0, [Math]::Min(100, $Percent))
+    $Percent = [Math]::Max(
+        0,
+        [Math]::Min(100, $Percent)
+    )
 
     $width = 32
-    $filled = [int][Math]::Floor(($Percent / 100) * $width)
+    $filled = [int][Math]::Floor(
+        ($Percent / 100) * $width
+    )
+
     $bar = ("#" * $filled) + ("-" * ($width - $filled))
 
     [Console]::Write(
@@ -115,9 +132,12 @@ function Invoke-FfmpegTrim(
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $FfmpegPath
-    $startInfo.Arguments = (($progressArgs | ForEach-Object {
-        Quote-Argument $_
-    }) -join " ")
+    $startInfo.Arguments = (
+        ($progressArgs | ForEach-Object {
+            Quote-Argument $_
+        }) -join " "
+    )
+
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardOutput = $true
     $startInfo.CreateNoWindow = $true
@@ -141,7 +161,9 @@ function Invoke-FfmpegTrim(
             $current = Convert-TimecodeToSeconds $line.Substring(9)
 
             if ($ExpectedDuration -gt 0) {
-                Show-ProgressBar (($current / $ExpectedDuration) * 100)
+                Show-ProgressBar (
+                    ($current / $ExpectedDuration) * 100
+                )
             }
         }
         elseif ($line -eq "progress=end") {
@@ -150,6 +172,7 @@ function Invoke-FfmpegTrim(
     }
 
     $process.WaitForExit()
+
     Show-ProgressBar 100
     [Console]::WriteLine()
 
@@ -167,6 +190,7 @@ if ([IO.Path]::GetExtension($InputFile) -ine ".mp4") {
 }
 
 $InputFile = (Resolve-Path -LiteralPath $InputFile).Path
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $localFfmpeg = Join-Path $scriptDir "ffmpeg.exe"
 
@@ -193,8 +217,12 @@ $fileName = [IO.Path]::GetFileName($InputFile)
 $directory = [IO.Path]::GetDirectoryName($InputFile)
 $stem = [IO.Path]::GetFileNameWithoutExtension($InputFile)
 
+# All trimmed files use: filename_t.mp4
+$output = Join-Path $directory ($stem + "_t.mp4")
+
 Write-Host $fileName
 Write-Host ""
+
 Write-Host "Enter = keep last 30s   |   45 = keep last 45s"
 Write-Host "30s = trim start        |   30e = trim end"
 Write-Host "30s30e = trim both"
@@ -208,28 +236,40 @@ if ([string]::IsNullOrWhiteSpace($spec)) {
 
 $ffmpegArgs = @("-y")
 $expectedDuration = 0.0
-$output = $null
 
 # A bare number keeps the last N seconds.
-$bareNumber = [regex]::Match($spec, '^\d+(?:\.\d+)?$')
+$bareNumber = [regex]::Match(
+    $spec,
+    '^\d+(?:\.\d+)?$'
+)
 
 if ($bareNumber.Success) {
-    $keep = [double]::Parse($spec, $Invariant)
+    $keep = [double]::Parse(
+        $spec,
+        $Invariant
+    )
 
     if ($keep -le 0) {
         Stop-WithError "The number must be greater than 0."
     }
 
-    $expectedDuration = [Math]::Min($keep, $duration)
-    $startAt = [Math]::Max(0, $duration - $expectedDuration)
+    $expectedDuration = [Math]::Min(
+        $keep,
+        $duration
+    )
 
-    $safeKeep = Format-FileSeconds $keep
-    $output = Join-Path $directory ($stem + "_trimmed_" + $safeKeep + ".mp4")
+    $startAt = [Math]::Max(
+        0,
+        $duration - $expectedDuration
+    )
 
     # Use the same duration-based seek style as the flag modes.
     # This avoids a separate -sseof code path for the default command.
     if ($startAt -gt 0) {
-        $ffmpegArgs += @("-ss", (Format-Seconds $startAt))
+        $ffmpegArgs += @(
+            "-ss",
+            (Format-Seconds $startAt)
+        )
     }
 
     $ffmpegArgs += @(
@@ -242,6 +282,7 @@ else {
     # 30s = trim 30 seconds from start
     # 30e = trim 30 seconds from end
     # 30s30e = trim both
+
     $matches = [regex]::Matches(
         $spec,
         '(?<n>\d+(?:\.\d+)?)\s*-?\s*(?<f>[se])'
@@ -267,7 +308,11 @@ else {
     $hasEnd = $false
 
     foreach ($match in $matches) {
-        $value = [double]::Parse($match.Groups["n"].Value, $Invariant)
+        $value = [double]::Parse(
+            $match.Groups["n"].Value,
+            $Invariant
+        )
+
         $flag = $match.Groups["f"].Value
 
         if ($flag -eq "s") {
@@ -298,28 +343,23 @@ else {
 
     $expectedDuration = $duration - $trimStart - $trimEnd
 
-    if ($hasStart -and $hasEnd) {
-        $suffix = "_trimmed_" +
-            (Format-FileSeconds $trimStart) + "s" +
-            (Format-FileSeconds $trimEnd) + "e.mp4"
-    }
-    elseif ($hasStart) {
-        $suffix = "_trimmed_" + (Format-FileSeconds $trimStart) + "s.mp4"
-    }
-    else {
-        $suffix = "_trimmed_" + (Format-FileSeconds $trimEnd) + "e.mp4"
-    }
-
-    $output = Join-Path $directory ($stem + $suffix)
-
     if ($trimStart -gt 0) {
-        $ffmpegArgs += @("-ss", (Format-Seconds $trimStart))
+        $ffmpegArgs += @(
+            "-ss",
+            (Format-Seconds $trimStart)
+        )
     }
 
-    $ffmpegArgs += @("-i", $InputFile)
+    $ffmpegArgs += @(
+        "-i",
+        $InputFile
+    )
 
     if ($hasEnd) {
-        $ffmpegArgs += @("-t", (Format-Seconds $expectedDuration))
+        $ffmpegArgs += @(
+            "-t",
+            (Format-Seconds $expectedDuration)
+        )
     }
 }
 
@@ -335,13 +375,38 @@ $ffmpegArgs += @(
 Write-Host ""
 Write-Host "Trimming..."
 
-$exitCode = Invoke-FfmpegTrim $ffmpeg $ffmpegArgs $expectedDuration
+$exitCode = Invoke-FfmpegTrim `
+    $ffmpeg `
+    $ffmpegArgs `
+    $expectedDuration
 
-if ($exitCode -ne 0 -or -not (Test-Path -LiteralPath $output)) {
+if (
+    $exitCode -ne 0 -or
+    -not (Test-Path -LiteralPath $output)
+) {
     Stop-WithError "Trim failed. The original file was not changed."
 }
 
 Write-Host ""
 Write-Host "Done!  $([IO.Path]::GetFileName($output))"
 Write-Host ""
-Write-Host "Original kept."
+
+$deleteOriginal = (Read-Host "Delete original file? [y/N]").Trim().ToLowerInvariant()
+
+if ($deleteOriginal -eq "y" -or $deleteOriginal -eq "yes") {
+    try {
+        Remove-Item -LiteralPath $InputFile -Force -ErrorAction Stop
+
+        Write-Host ""
+        Write-Host "Original deleted."
+    }
+    catch {
+        Write-Host ""
+        Write-Host "WARNING: Could not delete the original file."
+        Write-Host "Original kept."
+    }
+}
+else {
+    Write-Host ""
+    Write-Host "Original kept."
+}
