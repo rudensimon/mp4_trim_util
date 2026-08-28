@@ -1,4 +1,4 @@
-# TRIM CLIP v7.4
+# TRIM CLIP v7.5
 
 Lightweight Windows context-menu tool (right-click menu) for quickly trimming/cutting MP4 files using PowerShell and FFmpeg.
 
@@ -17,15 +17,15 @@ ffmpeg.exe
 into the same folder as:
 
 ```text
-Install Trim Clip v7.4.bat
+Install Trim Clip v7.5.bat
 ```
 
 Your folder should look something like this:
 
 ```text
 Trim Clip/
-├── Install Trim Clip v7.4.bat
-├── Uninstall Trim Clip v7.4.bat
+├── Install Trim Clip v7.5.bat
+├── Uninstall Trim Clip v7.5.bat
 ├── Trim Clip.ps1
 └── ffmpeg.exe
 ```
@@ -33,7 +33,7 @@ Trim Clip/
 3. Run:
 
 ```bat
-Install Trim Clip v7.4.bat
+Install Trim Clip v7.5.bat
 ```
 
 Trim Clip installs the PowerShell script to:
@@ -100,7 +100,7 @@ The original file is **never deleted or overwritten** by Trim Clip.
 Run:
 
 ```bat
-Uninstall Trim Clip v7.4.bat
+Uninstall Trim Clip v7.5.bat
 ```
 
 The uninstaller removes only:
