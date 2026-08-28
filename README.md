@@ -100,7 +100,7 @@ The original file is **never deleted or overwritten** by Trim Clip.
 Run:
 
 ```bat
-Uninstall Trim Clip v7.4.bat
+Uninstall Trim clip v7.4.bat
 ```
 
 The uninstaller removes only:
